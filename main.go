@@ -2,11 +2,16 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/gocolly/colly"
 )
 
-var jobsLink []string
+var jobTypeLinks []string
+
+var jobDetailsLinks []string
+
+var jobIDs []string
 
 var mobileJobs []jobDetails
 
@@ -14,7 +19,7 @@ type jobDetails struct {
 	Type  string
 	Title string
 	// Role      string
-	Salary    int
+	Salary    string
 	Location  string
 	Seniority string
 	Mode      string
@@ -25,91 +30,56 @@ type jobDetails struct {
 var defaultCollector = colly.NewCollector(
 	colly.AllowedDomains("www.getonbrd.com"),
 )
-
-// each job type/id have its own collector
-var uxCollector = defaultCollector.Clone()
-var programmingCollector = defaultCollector.Clone()
-var dsCollector = defaultCollector.Clone()
-var mobileCollector = defaultCollector.Clone()
+var jobCollector = defaultCollector.Clone()
 
 func main() {
-
 	fmt.Println("Scraper is running...")
 
 	// run collectors
 	getJobIDs()
-	getUxJobs()
-	getProgrammingJobs()
-	getDsJobs()
-	getMobileJobs()
+	getJobs()
 
 	defaultCollector.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
-	})
-
-	uxCollector.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
-	})
-
-	mobileCollector.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL.String())
 	})
 
 	defaultCollector.Visit("https://www.getonbrd.com")
 
 	// start scrapping by job id/type
-	uxCollector.Visit(jobsLink[0])
-	programmingCollector.Visit(jobsLink[1])
-	dsCollector.Visit(jobsLink[2])
-	mobileCollector.Visit(jobsLink[3])
+	for i := range jobTypeLinks {
+		jobCollector.Visit(jobTypeLinks[i])
+	}
 }
 
 // default collector get job IDs
 func getJobIDs() {
 	defaultCollector.OnHTML("div[class=main-container]", func(e *colly.HTMLElement) {
-		jobIDs := e.ChildAttrs("div[id]", "id")
+		jobIDs = e.ChildAttrs("div.jobs", "id")
 
 		for i := range jobIDs {
 			link := "https://www.getonbrd.com/jobs/" + jobIDs[i]
-			jobsLink = append(jobsLink, link)
+			jobTypeLinks = append(jobTypeLinks, link)
 		}
 	})
 }
 
-func getUxJobs() {
-	uxCollector.OnHTML("ul[class=sgb-results-list]", func(e *colly.HTMLElement) {
-		//uxLinks := e.ChildAttrs("a[href]", "href")
-		//fmt.Println("uX links;:: ", uxLinks)
-	})
-}
+func getJobs() {
+	jobCollector.OnHTML("ul[class=sgb-results-list]", func(e *colly.HTMLElement) {
+		jobDetailsLinks := e.ChildAttrs("a[href]", "href")
 
-func getProgrammingJobs() {
-	programmingCollector.OnHTML("ul[class=sgb-results-list]", func(e *colly.HTMLElement) {
-		//uxLinks := e.ChildAttrs("a[href]", "href")
-		//fmt.Println("programming links;:: ", uxLinks)
-	})
-}
+		jobCollector.OnHTML("div[id=right-col]", func(e *colly.HTMLElement) {
 
-func getDsJobs() {
-	dsCollector.OnHTML("ul[class=sgb-results-list]", func(e *colly.HTMLElement) {
-		//dsLinks := e.ChildAttrs("a[href]", "href")
-		//fmt.Println("data science links;:: ", dsLinks)
-	})
-}
+			location := e.ChildText("span[itemprop=address] > a[href] > span.location > span.tooltipster")
+			salary := e.ChildText("span[itemprop=baseSalary] > span.tooltipster-basic > strong")
+			// replace new lines
+			re := regexp.MustCompile(`\r?\n`)
 
-func getMobileJobs() {
-	mobileCollector.OnHTML("ul[class=sgb-results-list]", func(e *colly.HTMLElement) {
-		mobileLinks := e.ChildAttrs("a[href]", "href")
-
-		jobDetailsCol := mobileCollector.Clone()
-
-		jobDetailsCol.OnHTML("div[id=right-col]", func(e *colly.HTMLElement) {
 			// get job details
 			jobDetails := jobDetails{
-				Type:      "Mobile Developer", // harcoded helper in case there are page/site changes
+				Type:      e.ChildText("h2.size2 > a[href]"),
 				Title:     e.ChildText("span[itemprop=title]"),
-				Salary:    0,
-				Location:  e.ChildText("span[itemprop=address] > a[href] > span.location > span.tooltipster > span[itemprop=addressLocality]"),
+				Salary:    re.ReplaceAllString(salary, " "),
+				Location:  re.ReplaceAllString(location, " "),
 				Seniority: e.ChildText("span[itemprop=qualifications]"),
 				Mode:      e.ChildText("span[itemprop=employmentType]"),
 			}
@@ -119,10 +89,8 @@ func getMobileJobs() {
 			mobileJobs = append(mobileJobs, jobDetails)
 		})
 
-		fmt.Println("mobile job details: ", mobileJobs)
-
-		for i := range mobileLinks {
-			jobDetailsCol.Visit(mobileLinks[i])
+		for i := range jobDetailsLinks {
+			jobCollector.Visit(jobDetailsLinks[i])
 		}
 	})
 }
