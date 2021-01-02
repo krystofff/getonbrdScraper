@@ -7,13 +7,23 @@ import (
 	"github.com/gocolly/colly"
 )
 
-var jobTypeLinks []string
-
-var jobDetailsLinks []string
-
 var jobIDs []string
 
+var jobTypeLinks []string
+var jobDetailsLinks []string
+
+var uxJobs []jobDetails
+var programmingJobs []jobDetails
+var dsJobs []jobDetails
 var mobileJobs []jobDetails
+var supportJobs []jobDetails
+var marketingJobs []jobDetails
+var devopsQAJobs []jobDetails
+var opsManagementJobs []jobDetails
+var salesJobs []jobDetails
+var advertisingJobs []jobDetails
+var agileJobs []jobDetails
+var hrJobs []jobDetails
 
 type jobDetails struct {
 	Type  string
@@ -40,7 +50,11 @@ func main() {
 	getJobs()
 
 	defaultCollector.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
+		fmt.Println("Default collector Visiting", r.URL.String())
+	})
+
+	jobCollector.OnRequest(func(r *colly.Request) {
+		fmt.Println("Job collector Visiting", r.URL.String())
 	})
 
 	defaultCollector.Visit("https://www.getonbrd.com")
@@ -49,6 +63,9 @@ func main() {
 	for i := range jobTypeLinks {
 		jobCollector.Visit(jobTypeLinks[i])
 	}
+
+	//fmt.Println("UX jobs: ", uxJobs)
+	//fmt.Println("Programming  jobs: ", programmingJobs)
 }
 
 // default collector get job IDs
@@ -68,7 +85,6 @@ func getJobs() {
 		jobDetailsLinks := e.ChildAttrs("a[href]", "href")
 
 		jobCollector.OnHTML("div[id=right-col]", func(e *colly.HTMLElement) {
-
 			location := e.ChildText("span[itemprop=address] > a[href] > span.location > span.tooltipster")
 			salary := e.ChildText("span[itemprop=baseSalary] > span.tooltipster-basic > strong")
 			// replace new lines
@@ -84,9 +100,34 @@ func getJobs() {
 				Mode:      e.ChildText("span[itemprop=employmentType]"),
 			}
 
-			fmt.Printf("Job details %+v\n", jobDetails)
+			//fmt.Printf("Job details %+v\n", jobDetails)
 
-			mobileJobs = append(mobileJobs, jobDetails)
+			switch jobDetails.Type {
+			case "Design / UX":
+				uxJobs = append(uxJobs, jobDetails)
+			case "Programming":
+				programmingJobs = append(programmingJobs, jobDetails)
+			case "Data Science / Analytics":
+				dsJobs = append(dsJobs, jobDetails)
+			case "Mobile Development":
+				mobileJobs = append(mobileJobs, jobDetails)
+			case "Customer Support":
+				supportJobs = append(supportJobs, jobDetails)
+			case "Digital Marketing":
+				marketingJobs = append(marketingJobs, jobDetails)
+			case "SysAdmin / DevOps / QA":
+				devopsQAJobs = append(devopsQAJobs, jobDetails)
+			case "Operations / Management":
+				opsManagementJobs = append(opsManagementJobs, jobDetails)
+			case "Sales":
+				salesJobs = append(salesJobs, jobDetails)
+			case "Advertising & Media":
+				advertisingJobs = append(advertisingJobs, jobDetails)
+			case "Innovation & Agile":
+				agileJobs = append(agileJobs, jobDetails)
+			case "People & HR":
+				hrJobs = append(hrJobs, jobDetails)
+			}
 		})
 
 		for i := range jobDetailsLinks {
