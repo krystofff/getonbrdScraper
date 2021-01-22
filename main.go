@@ -81,6 +81,7 @@ func getCategories(method string, url string, client *http.Client) {
 	}
 }
 
+// get job details by category
 func getJobDetails(client *http.Client, categories []string) {
 
 	for i := range categories {
@@ -101,7 +102,9 @@ func getJobDetails(client *http.Client, categories []string) {
 			fmt.Println("error ", errr)
 			panic(err)
 		}
-		fmt.Println(jd.Data[0])
+		// fmt.Println(jd.Data[0])
+		fmt.Printf("Job details %+v\n", jd.Data)
+		fmt.Println("total jobs by category:: ", len(jd.Data))
 	}
 
 }
