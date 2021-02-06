@@ -38,8 +38,8 @@ type jobDetails struct {
 }
 
 type catAttributes struct {
-	name      string `json:"name"`
-	dimension string `json:"dimension"`
+	Name      string `json:"name"`
+	Dimension string `json:"dimension"`
 }
 
 type Categories struct {
@@ -48,29 +48,35 @@ type Categories struct {
 	} `json:"data"`
 }
 
-var jobCategories []string
-
-func main() {
-	client := &http.Client{}
-
-	getCategories("GET", categoriesUrl, client)
-
-	getJobDetails(client, jobCategories)
+type jobCategory struct {
+	categoryName string
+	total        int
 }
 
-func getCategories(method string, url string, client *http.Client) {
-	req, err := http.NewRequest(method, url, nil)
+type jobsByCategory []jobCategory
 
-	if err != nil {
-		fmt.Println(err)
-	}
-	res, err := client.Do(req)
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+var totalJobsByCategory jobsByCategory
+
+var jobCategories []string
+
+var totalJobs int
+
+func main() {
+
+	getJobCategories()
+
+	getJobDetails()
+	fmt.Printf("total jobs by category %+v\n", totalJobsByCategory)
+	fmt.Println("Total jobs: ", totalJobs)
+}
+
+func getJobCategories() {
+
+	body := getRequest(categoriesUrl)
 
 	var cat Categories
 
-	err = json.Unmarshal(body, &cat)
+	err := json.Unmarshal(body, &cat)
 	if err != nil {
 		fmt.Println("error ", err)
 		panic(err)
@@ -82,29 +88,46 @@ func getCategories(method string, url string, client *http.Client) {
 }
 
 // get job details by category
-func getJobDetails(client *http.Client, categories []string) {
+func getJobDetails() {
+	for i := range jobCategories {
+		url := fmt.Sprintf("https://www.getonbrd.com/api/v0/categories/%s/jobs?", jobCategories[i])
 
-	for i := range categories {
-		url := fmt.Sprintf("https://www.getonbrd.com/api/v0/categories/%s/jobs?", categories[i])
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			fmt.Println(err)
-		}
-		res, err := client.Do(req)
-		defer res.Body.Close()
-		body, err := ioutil.ReadAll(res.Body)
+		body := getRequest(url)
 
 		var jd jobDetails
 
-		errr := json.Unmarshal(body, &jd)
-		if errr != nil {
-			fmt.Println("error ", errr)
+		err := json.Unmarshal(body, &jd)
+		if err != nil {
+			fmt.Println("error ", err)
 			panic(err)
 		}
-		// fmt.Println(jd.Data[0])
-		fmt.Printf("Job details %+v\n", jd.Data)
-		fmt.Println("total jobs by category:: ", len(jd.Data))
+
+		totalJobs += len(jd.Data)
+		totalJobsByCategory = append(totalJobsByCategory, jobCategory{jobCategories[i], len(jd.Data)})
 	}
 
+}
+
+func getRequest(url string) []byte {
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return body
 }
