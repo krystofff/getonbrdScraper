@@ -53,13 +53,23 @@ type jobCategory struct {
 	total        int
 }
 
+type avgSalByCategory struct {
+	categoryName string
+	total        int
+}
+
 type jobsByCategory []jobCategory
 
-var totalJobsByCategory jobsByCategory
+type avgSalariesByCat []avgSalByCategory
 
-var jobCategories []string
+type jobsDetails []jobDetails
 
-var totalJobs int
+var (
+	totalJobsByCategory   jobsByCategory
+	jobCategories         []string
+	totalJobs             int
+	avgSalariesByCategory avgSalariesByCat
+)
 
 func main() {
 
@@ -68,6 +78,8 @@ func main() {
 	getJobDetails()
 	fmt.Printf("total jobs by category %+v\n", totalJobsByCategory)
 	fmt.Println("Total jobs: ", totalJobs)
+
+	fmt.Println("AVG salaries: ", avgSalariesByCategory)
 }
 
 func getJobCategories() {
@@ -102,9 +114,27 @@ func getJobDetails() {
 			panic(err)
 		}
 
+		// fmt.Println("DATA:: ", jd.Data[0])
+
+		avgSalariesByCategory = append(avgSalariesByCategory, avgSalByCategory{jobCategories[i], getSalaryByCategory(jd)})
+
 		totalJobs += len(jd.Data)
 		totalJobsByCategory = append(totalJobsByCategory, jobCategory{jobCategories[i], len(jd.Data)})
 	}
+
+}
+
+func getSalaryByCategory(jobDetails jobDetails) int {
+
+	var avgSalaryByCategory, jobsLen int
+
+	for _, data := range jobDetails.Data {
+		if data.Attributes.MinSalary > 0 || data.Attributes.MaxSalary > 0 {
+			jobsLen++
+			avgSalaryByCategory += (data.Attributes.MinSalary + data.Attributes.MaxSalary) / 2
+		}
+	}
+	return avgSalaryByCategory / jobsLen
 
 }
 
