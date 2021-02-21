@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 )
 
 const (
@@ -48,27 +49,18 @@ type Categories struct {
 	} `json:"data"`
 }
 
-type jobCategory struct {
+type jobTotalCategory struct {
 	categoryName string
 	total        int
 }
-
-type avgSalByCategory struct {
-	categoryName string
-	total        int
-}
-
-type jobsByCategory []jobCategory
-
-type avgSalariesByCat []avgSalByCategory
-
-type jobsDetails []jobDetails
 
 var (
-	totalJobsByCategory   jobsByCategory
-	jobCategories         []string
-	totalJobs             int
-	avgSalariesByCategory avgSalariesByCat
+	jobCategories            []string
+	totalJobs                int
+	totalJobsByCategory      []jobTotalCategory
+	avgSalariesByCategory    []jobTotalCategory
+	medianSalariesByCategory []jobTotalCategory
+	avgSalariesList          []int
 )
 
 func main() {
@@ -76,10 +68,14 @@ func main() {
 	getJobCategories()
 
 	getJobDetails()
-	fmt.Printf("total jobs by category %+v\n", totalJobsByCategory)
 	fmt.Println("Total jobs: ", totalJobs)
-
-	fmt.Println("AVG salaries: ", avgSalariesByCategory)
+	fmt.Println("--------------------------------------------------------")
+	fmt.Printf("Total jobs by category: %+v\n", totalJobsByCategory)
+	fmt.Println("--------------------------------------------------------")
+	fmt.Printf("AVG salaries by category: %+v\n", avgSalariesByCategory)
+	fmt.Println("--------------------------------------------------------")
+	fmt.Printf("Median salaries by category: %+v\n", medianSalariesByCategory)
+	fmt.Println("--------------------------------------------------------")
 }
 
 func getJobCategories() {
@@ -114,28 +110,45 @@ func getJobDetails() {
 			panic(err)
 		}
 
-		// fmt.Println("DATA:: ", jd.Data[0])
-
-		avgSalariesByCategory = append(avgSalariesByCategory, avgSalByCategory{jobCategories[i], getSalaryByCategory(jd)})
-
 		totalJobs += len(jd.Data)
-		totalJobsByCategory = append(totalJobsByCategory, jobCategory{jobCategories[i], len(jd.Data)})
+		totalJobsByCategory = append(totalJobsByCategory, jobTotalCategory{jobCategories[i], len(jd.Data)})
+		getSalaryData(jd)
 	}
-
 }
 
-func getSalaryByCategory(jobDetails jobDetails) int {
+// gets average and median salary by category
+func getSalaryData(jobDetails jobDetails) {
 
-	var avgSalaryByCategory, jobsLen int
+	var avgSalaryByCategory = 0
+	var jobsLen = 0
+	var totalAvgSalaryByCategory = 0
+	avgSalariesList = nil
 
 	for _, data := range jobDetails.Data {
 		if data.Attributes.MinSalary > 0 || data.Attributes.MaxSalary > 0 {
 			jobsLen++
-			avgSalaryByCategory += (data.Attributes.MinSalary + data.Attributes.MaxSalary) / 2
+			avgSalaryByCategory = (data.Attributes.MinSalary + data.Attributes.MaxSalary) / 2
+			totalAvgSalaryByCategory += (data.Attributes.MinSalary + data.Attributes.MaxSalary) / 2
+			avgSalariesList = append(avgSalariesList, avgSalaryByCategory)
 		}
 	}
-	return avgSalaryByCategory / jobsLen
+	avgSalariesByCategory = append(avgSalariesByCategory,
+		jobTotalCategory{jobDetails.Data[0].Attributes.Category, totalAvgSalaryByCategory / jobsLen})
 
+	medianSalariesByCategory = append(medianSalariesByCategory,
+		jobTotalCategory{jobDetails.Data[0].Attributes.Category, CalcMedian(avgSalariesList)})
+}
+
+func CalcMedian(n []int) int {
+	sort.Ints(n) // sort the numbers
+	mNumber := len(n) / 2
+
+	// is Odd?
+	if len(n)%2 != 0 {
+		return n[mNumber]
+	}
+
+	return (n[mNumber-1] + n[mNumber]) / 2
 }
 
 func getRequest(url string) []byte {
