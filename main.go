@@ -10,7 +10,7 @@ import (
 
 const (
 	categoriesUrl string = "https://www.getonbrd.com/api/v0/categories?"
-	tagsUrl       string = "https://www.getonbrd.com/api/v0/tags?page=2"
+	tagsUrl       string = "https://www.getonbrd.com/api/v0/tags?page="
 )
 
 type attributes struct {
@@ -56,18 +56,25 @@ type Tags struct {
 	} `json:"data"`
 }
 
-type jobTotalCategory struct {
+type jobByCategory struct {
 	categoryName string
 	total        int
 }
 
+type jobsByTag struct {
+	tagName string
+	total   int
+}
+
 var (
 	jobCategories            []string
+	tags                     []string
 	totalJobs                int
-	totalJobsByCategory      []jobTotalCategory
-	avgSalariesByCategory    []jobTotalCategory
-	medianSalariesByCategory []jobTotalCategory
+	totalJobsByCategory      []jobByCategory
+	avgSalariesByCategory    []jobByCategory
+	medianSalariesByCategory []jobByCategory
 	avgSalariesList          []int
+	totalJobsByTag           []jobsByTag
 )
 
 func main() {
@@ -84,6 +91,10 @@ func main() {
 	   	fmt.Printf("Median salaries by category: %+v\n", medianSalariesByCategory)
 	   	fmt.Println("--------------------------------------------------------")
 	*/getTags()
+	getJobsByTag()
+	// fmt.Printf("Tags: %+v\n", tags)
+
+	fmt.Printf("Total jobs by tag: %+v\n", totalJobsByTag)
 }
 
 func getJobCategories() {
@@ -118,7 +129,7 @@ func getJobDetails() {
 		}
 
 		totalJobs += len(jd.Data)
-		totalJobsByCategory = append(totalJobsByCategory, jobTotalCategory{jobCategories[i], len(jd.Data)})
+		totalJobsByCategory = append(totalJobsByCategory, jobByCategory{jobCategories[i], len(jd.Data)})
 		getSalaryData(jd)
 	}
 }
@@ -140,12 +151,12 @@ func getSalaryData(jobDetails jobDetails) {
 
 	if jobsLen > 0 {
 		avgSalariesByCategory = append(avgSalariesByCategory,
-			jobTotalCategory{jobDetails.Data[0].Attributes.Category, totalAvgSalaryByCategory / jobsLen})
+			jobByCategory{jobDetails.Data[0].Attributes.Category, totalAvgSalaryByCategory / jobsLen})
 	}
 
 	if len(avgSalariesList) > 0 {
 		medianSalariesByCategory = append(medianSalariesByCategory,
-			jobTotalCategory{jobDetails.Data[0].Attributes.Category, getMedian(avgSalariesList)})
+			jobByCategory{jobDetails.Data[0].Attributes.Category, getMedian(avgSalariesList)})
 	}
 }
 
@@ -161,21 +172,46 @@ func getMedian(n []int) int {
 	return (n[mNumber-1] + n[mNumber]) / 2
 }
 
-// TODO: should get tags by page: max = 100 per page
+// get all tags
 func getTags() {
-	body := getRequest(tagsUrl)
+	for i := 1; i < 5; i++ {
 
-	var tag Tags
+		body := getRequest(tagsUrl + fmt.Sprintf("%d", i))
+		var tag Tags
 
-	err := json.Unmarshal(body, &tag)
-	if err != nil {
-		fmt.Println("error ", err)
-		panic(err)
+		err := json.Unmarshal(body, &tag)
+		if err != nil {
+			fmt.Println("error ", err)
+			panic(err)
+		}
+
+		for _, data := range tag.Data {
+			tags = append(tags, data.Id)
+		}
 	}
 
-	fmt.Println("LEN --> ", len(tag.Data))
-	for _, data := range tag.Data {
-		fmt.Println("Tag:: ", data)
+}
+
+func getJobsByTag() {
+	for i := range tags {
+		page := 1
+		totalJobs := 0
+		j := 1
+		for j > 0 {
+			url := fmt.Sprintf("https://www.getonbrd.com/api/v0/tags/%s/jobs?page=%d", tags[i], page)
+			body := getRequest(url)
+
+			var jd jobDetails
+			err := json.Unmarshal(body, &jd)
+			if err != nil {
+				fmt.Println("error ", err)
+				panic(err)
+			}
+			totalJobs += len(jd.Data)
+			page++
+			j = len(jd.Data)
+		}
+		totalJobsByTag = append(totalJobsByTag, jobsByTag{tags[i], totalJobs})
 	}
 }
 
