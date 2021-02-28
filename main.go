@@ -6,12 +6,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+
+	"github.com/AlecAivazis/survey/v2"
 )
 
 const (
 	categoriesUrl string = "https://www.getonbrd.com/api/v0/categories?"
 	tagsUrl       string = "https://www.getonbrd.com/api/v0/tags?page="
 )
+
+var opts = []string{"1)Total jobs", "2)Total jobs by category", "3)Average salary by category",
+	"4)Median salary by category", "5)Total jobs by tag/technology"}
 
 type attributes struct {
 	Title     string `json:"title"`
@@ -77,24 +82,53 @@ var (
 	totalJobsByTag           []jobsByTag
 )
 
+var qs = []*survey.Question{
+	{
+		Name: "options",
+		Prompt: &survey.Select{
+			Message: "Get:",
+			Options: opts,
+			Default: "1)Total jobs",
+		},
+	},
+}
+
 func main() {
+	initSurvey()
+}
 
-	/* 	getJobCategories()
+func initSurvey() {
+	answers := struct {
+		Option string `survey:"options"`
+	}{}
 
-	   	getJobDetails()
-	   	fmt.Println("Total jobs: ", totalJobs)
-	   	fmt.Println("--------------------------------------------------------")
-	   	fmt.Printf("Total jobs by category: %+v\n", totalJobsByCategory)
-	   	fmt.Println("--------------------------------------------------------")
-	   	fmt.Printf("AVG salaries by category: %+v\n", avgSalariesByCategory)
-	   	fmt.Println("--------------------------------------------------------")
-	   	fmt.Printf("Median salaries by category: %+v\n", medianSalariesByCategory)
-	   	fmt.Println("--------------------------------------------------------")
-	*/getTags()
-	getJobsByTag()
-	// fmt.Printf("Tags: %+v\n", tags)
+	err := survey.Ask(qs, &answers)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
-	fmt.Printf("Total jobs by tag: %+v\n", totalJobsByTag)
+	getJobCategories()
+	getTags()
+
+	// TODO: split functions so it doesn't call the same multiple times
+	switch answers.Option[:1] {
+	case "1":
+		getJobDetails()
+		fmt.Println("Total jobs: ", totalJobs)
+	case "2":
+		getJobDetails()
+		fmt.Println("Total jobs by category: ", totalJobsByCategory)
+	case "3":
+		getJobDetails()
+		fmt.Println("Average salary by category: ", avgSalariesByCategory)
+	case "4":
+		getJobDetails()
+		fmt.Println("Median salary by category: ", medianSalariesByCategory)
+	case "5":
+		getJobsByTag()
+		fmt.Println("Total jobs by tag/technology: ", totalJobsByTag)
+	}
 }
 
 func getJobCategories() {
